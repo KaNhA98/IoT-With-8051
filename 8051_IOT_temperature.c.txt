@@ -1,0 +1,296 @@
+#include <reg51.h>
+
+sbit rs=P3^3;
+sbit en=P3^4;
+sbit ale=P1^2;
+sbit start=P1^1;
+sbit clk=P1^4;
+sbit eoc=P1^3;
+sbit oe=P1^0;
+sbit adda=P1^5;
+sbit addb=P1^6;
+sbit addc=P1^7;
+
+int a=0,i,k,j,n=0,val;
+char temp;
+unsigned char y,num[4]={'0','0','0','\0'};
+
+void lcd_init();
+void dat(unsigned char val);
+void cmd(unsigned char val);
+void str(unsigned char *disp);
+
+void convert(unsigned int z);
+void tx_str(unsigned char *disp);
+unsigned char rx_char();
+void tx_char(unsigned char v1);
+void delay(int x);
+void at_cmd();
+
+void main ()
+{
+	lcd_init();
+	clk=0;
+	adda=0;
+	addb=0;
+	addc=0;
+	ale=0;
+	start=0;
+	oe=0;
+	eoc=1;
+	
+	TMOD=0x22;
+	TH0=0xfd;
+	TH1=0xfd;
+	IE=0x82;
+	SCON=0x50;
+	TR0=1;
+	TR1=1;
+	TI=0;
+	
+	while(rx_char()!='I');
+	while(rx_char()!='P');
+	
+	tx_str("AT");
+	tx_char(0x0D);
+	tx_char(0x0A);
+	
+	while(rx_char()!='O');
+	while(rx_char()!='K');
+	
+	tx_str("AT+CIPMUX=0");
+	tx_char(0x0D);
+	tx_char(0x0A);
+	
+	while(rx_char()!='O');
+	while(rx_char()!='K');
+	
+	delay(200);
+	tx_str("AT+CWMODE=1");
+	tx_char(0x0D);
+	tx_char(0x0A);
+	
+	while(rx_char()!='O');
+	while(rx_char()!='K');
+	
+	delay(200);
+	tx_str("AT+CWJAP=\"mriic_IOT\",\"mriic_iot\"");
+	tx_char(0x0D);
+	tx_char(0x0A);
+	
+	while(rx_char()!='O');
+	while(rx_char()!='K');
+	
+	while(1)
+	{
+		dat('a');
+		at_cmd();
+		delay(500);
+		
+		
+	}
+}
+
+void fun() interrupt 1
+{
+	clk=~clk;
+}
+
+void at_cmd()
+{
+	ale=1;
+	delay(2);
+	start=1;
+	delay(2);
+	ale=0;
+	delay(2);
+	start=0;
+	dat('b');
+	while(eoc==1);
+	dat('c');
+	while(eoc==0);
+	dat('d');
+	oe=1;
+	dat('e');
+	delay(2);
+	val=P2;
+	dat('f');
+	oe=0;
+	dat('g');
+	n=val*2;
+	dat('h');
+	
+	tx_str("AT+CIPSTART=\"TCP\",\"192.168.50.3\",80");
+	tx_char(0x0D);
+	tx_char(0x0A);
+	while(rx_char()!='O');
+	while(rx_char()!='K');
+	if(n<10)
+	{
+		convert(n);
+		dat('i');
+		tx_str("AT+CIPSEND=19");
+		tx_char(0x0D);
+		tx_char(0x0A);
+		while(rx_char()!='>');
+		
+		tx_str("GET /1.php?temp=");
+		tx_char(num[0]);
+		tx_char(0x0D);
+		tx_char(0x0A);
+		while(rx_char()!='O');
+		while(rx_char()!='K');
+		delay(500);
+		tx_str("AT+CIPCLOSE");
+		tx_char(0x0D);
+		tx_char(0x0A);
+	}
+	else if(n<100 && n>=10)
+	{
+		convert(n);
+		dat('i');
+		tx_str("AT+CIPSEND=20");
+		tx_char(0x0D);
+		tx_char(0x0A);
+		while(rx_char()!='>');
+		tx_str("GET /1.php?temp=");
+		tx_char(num[0]);
+		tx_char(num[1]);
+		tx_char(0x0D);
+		tx_char(0x0A);
+		while(rx_char()!='O');
+		while(rx_char()!='K');
+		delay(500);
+		tx_str("AT+CIPCLOSE");
+		tx_char(0x0D);
+		tx_char(0x0A);
+	}
+	else if(n<1000 && n>=100)
+	{
+		tx_str("AT+CIPSEND=21");
+		tx_char(0x0D);
+		tx_char(0x0A);
+		while(rx_char()!='>');
+		tx_str("GET /1.php?temp=");
+		tx_char(num[0]);
+		tx_char(num[1]);
+		tx_char(num[2]);
+ 		tx_char(0x0D);
+		tx_char(0x0A);
+		while(rx_char()!='O');
+		while(rx_char()!='K');
+		delay(500);
+		tx_str("AT+CIPCLOSE");
+		tx_char(0x0D);
+		tx_char(0x0A);
+	}
+}
+
+
+
+void delay(int x)
+{
+	int i,j;
+	for(i=0;i<x;i++)
+	{
+		for(j=0;j<1275;j++);
+	} 
+}
+
+
+
+
+void tx_char(unsigned char val)
+{
+	SBUF=val;
+	while(TI==0);
+	TI=0;
+}
+
+
+
+void tx_str(unsigned char *disp)
+{
+	int x=0;
+	while(disp[x]!='\0')
+	{
+		tx_char(disp[x]);
+		x=x+1;
+	}
+}
+
+
+
+unsigned char rx_char()
+{
+	while(RI==0);
+	RI=0;
+	return SBUF;
+}
+
+
+
+void convert(unsigned int z)
+{
+	int m,x,y;
+	x=y=z;
+	for(i=0;i<4;i++)
+	{
+		x=x/10;
+		if(x==0)
+		{
+			break;
+		}
+	}
+	m=i;
+	for(j=0;j<i;j++)
+	{
+		num[m]=48+(y%10);
+		y=y/10;
+		m--;
+	}
+	num[0]=48+y;
+	num[i+1]='\0';
+}
+
+
+void lcd_init()
+{
+ cmd(0x38);
+ cmd(0x0e);
+ cmd(0x01);
+ cmd(0x06);
+ cmd(0x80);
+}
+
+
+void dat(unsigned char val)
+{
+ P0=val;
+ rs=1;
+ en=1;
+ delay(2);
+ en=0;
+}
+
+
+void cmd(unsigned char val)
+{
+ P0=val;
+ rs=0;
+ en=1;
+ delay(2);
+ en=0;
+}
+
+
+void str(unsigned char *disp)
+{
+	int x;
+	while(disp[x]!='\0')
+	{
+		dat(disp[x]);
+		x=x+1;
+	}
+	x=0;
+}
