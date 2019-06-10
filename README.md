@@ -4,3 +4,5 @@ Here, a local Server in made using Xampp Software. And a php script is run to up
 ESP8266 WiFi Module is used for Connecting 8051 to a wifi network.
 To run the program locally, the device on which the server is hosted and the esp8266, both should be connected to a same wifi network.
 The coding is done for 8051 Microcontroller, and is an Embedded C programming.
+
+Open the txt file "8051_IoT_temperature.c.txt" and copy and upload the code.
